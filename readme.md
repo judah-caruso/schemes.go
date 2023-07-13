@@ -29,7 +29,7 @@ func main() {
       // ...
    }
 
-   fmt.Println("Opened scheme:", scheme)
+   fmt.Println("Opened scheme:", scheme.Title)
 
    // Apply/work with scheme colors
    // Scheme.C0-C7     : SchemeColor
@@ -37,7 +37,7 @@ func main() {
 
    fmt.Println("The hex value of c3 is:", scheme.C3.Hex())
 
-   svg := schemes.ExportScheme(scheme)
+   svg := scheme.String()
    fmt.Println("Exported scheme:\n", svg)
 }
 ```

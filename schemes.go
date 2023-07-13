@@ -5,19 +5,38 @@ import (
 	"encoding/xml"
 	"fmt"
 	"math"
+	"strconv"
 	"strings"
 )
 
 type Scheme struct {
-	Title string
-	C0    SchemeColor
-	C1    SchemeColor
-	C2    SchemeColor
-	C3    SchemeColor
-	C4    SchemeColor
-	C5    SchemeColor
-	C6    SchemeColor
-	C7    SchemeColor
+	Title   string
+	Version int
+	C0      SchemeColor
+	C1      SchemeColor
+	C2      SchemeColor
+	C3      SchemeColor
+	C4      SchemeColor
+	C5      SchemeColor
+	C6      SchemeColor
+	C7      SchemeColor
+}
+
+// Takes a Scheme struct and turns it into an SVG scheme
+func (s Scheme) String() string {
+	return fmt.Sprintf(
+		schemeTemplate,
+		s.Title,
+		s.Version,
+		s.C0.Hex(),
+		s.C1.Hex(),
+		s.C2.Hex(),
+		s.C3.Hex(),
+		s.C4.Hex(),
+		s.C5.Hex(),
+		s.C6.Hex(),
+		s.C7.Hex(),
+	)
 }
 
 func (s Scheme) Palette() []SchemeColor {
@@ -31,21 +50,6 @@ func (s Scheme) Palette() []SchemeColor {
 		s.C6,
 		s.C7,
 	}
-}
-
-func (s Scheme) String() string {
-	return fmt.Sprintf(
-		"%s [ %s, %s, %s, %s, %s, %s, %s, %s ]",
-		s.Title,
-		s.C0.Hex(),
-		s.C1.Hex(),
-		s.C2.Hex(),
-		s.C3.Hex(),
-		s.C4.Hex(),
-		s.C5.Hex(),
-		s.C6.Hex(),
-		s.C7.Hex(),
-	)
 }
 
 type SchemeColor struct {
@@ -72,10 +76,12 @@ func (c SchemeColor) Hex() string {
 func ReadScheme(source []byte) (*Scheme, error) {
 	scheme := &Scheme{}
 	scheme.Title = defaultTitle
+	scheme.Version = currentVersion
 
 	var svg struct {
-		Title string `xml:"title"`
-		Style string `xml:"style"`
+		Title   string `xml:"title"`
+		Style   string `xml:"style"`
+		Version string `xml:"version"`
 	}
 
 	if err := xml.Unmarshal(source, &svg); err != nil {
@@ -84,6 +90,15 @@ func ReadScheme(source []byte) (*Scheme, error) {
 
 	if len(svg.Title) > 0 {
 		scheme.Title = svg.Title
+	}
+
+	if len(svg.Version) > 0 {
+		ver, err := strconv.Atoi(svg.Version)
+		if err != nil {
+			return nil, err
+		}
+
+		scheme.Version = ver
 	}
 
 	colors := strings.Split(svg.Style, "#c")
@@ -119,12 +134,12 @@ func ReadScheme(source []byte) (*Scheme, error) {
 
 		_, rawColor, found := strings.Cut(line, "fill")
 		if !found {
-			return nil, fmt.Errorf("Unable to find 'fill' property on #%s", id)
+			return nil, fmt.Errorf("unable to find 'fill' property on #%s", id)
 		}
 
 		_, rawColor, found = strings.Cut(rawColor, ":")
 		if !found {
-			return nil, fmt.Errorf("Malformed property for %s", line)
+			return nil, fmt.Errorf("malformed property for %s", line)
 		}
 
 		end := -1
@@ -136,7 +151,7 @@ func ReadScheme(source []byte) (*Scheme, error) {
 		}
 
 		if end == -1 {
-			return nil, fmt.Errorf("Malformed property for %s", line)
+			return nil, fmt.Errorf("malformed property for %s", line)
 		}
 
 		var err error
@@ -163,22 +178,6 @@ func ReadScheme(source []byte) (*Scheme, error) {
 	}
 
 	return scheme, nil
-}
-
-// Takes a Scheme struct and turns it into an SVG scheme
-func ExportScheme(s *Scheme) string {
-	return fmt.Sprintf(
-		schemeTemplate,
-		s.Title,
-		s.C0.Hex(),
-		s.C1.Hex(),
-		s.C2.Hex(),
-		s.C3.Hex(),
-		s.C4.Hex(),
-		s.C5.Hex(),
-		s.C6.Hex(),
-		s.C7.Hex(),
-	)
 }
 
 // Converts an RGB string (in the format of 'rgb(RR, GG, BB)') to aScheme_Color
@@ -214,8 +213,8 @@ func FromHSV(str string) (SchemeColor, error) {
 		pz := math.Abs(fract(hue+1/3.0)*6-3) - 1
 
 		px = clamp(px, 0, 1)
-		py = clamp(px, 0, 1)
-		pz = clamp(px, 0, 1)
+		py = clamp(py, 0, 1)
+		pz = clamp(pz, 0, 1)
 
 		px = lerp(1, px, sat)
 		py = lerp(1, py, sat)
@@ -258,23 +257,25 @@ func lerp(a float64, b float64, t float64) float64 {
 }
 
 const (
-	defaultTitle = "Color Scheme by Person"
+	defaultTitle   = "Color Scheme by Person"
+	currentVersion = 2
 
 	schemeTemplate = `<svg width="288px" height="140px" xmlns="http://www.w3.org/2000/svg" baseProfile="full" version="1.1">
    <title>%s</title>
+	<version>%d</version>
    <style>
       #c0 { fill: %s; } <!-- Background -->
-      #c1 { fill: %s; } <!-- Foreground, Operators --> 
-      #c2 { fill: %s; } <!-- Types --> 
-      #c3 { fill: %s; } <!-- Procedures, Keywords --> 
+      #c1 { fill: %s; } <!-- Foreground, Operators -->
+      #c2 { fill: %s; } <!-- Types -->
+      #c3 { fill: %s; } <!-- Procedures, Keywords -->
       #c4 { fill: %s; } <!-- Constants, Strings -->
       #c5 { fill: %s; } <!-- Pre-Processor, Special -->
       #c6 { fill: %s; } <!-- Errors -->
-      #c7 { fill: %s; } <!-- Comments --> 
+      #c7 { fill: %s; } <!-- Comments -->
    </style>
 
-   <rect width="288" height="140" id="c0"></rect>   
-   <text x="10" y="20" style="font-family: monospace" id="c1"><tspan x="10"><tspan id="c5">import</tspan> <tspan id="c4">"fmt"</tspan> <tspan id="c7">// package main</tspan></tspan><tspan x="10" dy="2em"><tspan id="c3">type</tspan> Point <tspan id="c2">struct</tspan> {</tspan><tspan x="25" dy="1em">x, y <tspan id="c2">float32</tspan></tspan><tspan x="10" dy="1em">}</tspan><tspan x="10" dy="2em"><tspan id="c2">func</tspan> <tspan id="c3">main</tspan>() {</tspan><tspan x="25" dy="1em">fmt.println(<tspan id="c4">"Hello, World"</tspan>)</tspan><tspan x="10" dy="1em">}</tspan>
-</text>
+	<!-- Language Preview -->
+	<rect width="288px" height="140px" rx="10px" id="c0"></rect>
+	<text style="font-family:ui-monospace,monospace;font-size: 12px;font-weight:400;" id="c1"><tspan x="5px" y="19px"><tspan id="c5">import</tspan> <tspan id="c3">"fmt"</tspan></tspan><tspan x="19px" y="33px"></tspan><tspan x="5px" y="47px"><tspan id="c3">type</tspan> Point <tspan id="c2">struct</tspan> {</tspan><tspan x="19px" y="61px">X, Y <tspan id="c2">float32</tspan></tspan><tspan x="5px" y="75px">}</tspan><tspan x="5px" y="89px"><tspan id="c3">func</tspan> <tspan id="c3">main</tspan>() {</tspan><tspan x="19px" y="103px">p := Point{ <tspan id="c6" style="text-decoration: underline wavy">x</tspan>: <tspan id="c3">10</tspan>, Y: <tspan id="c3">30</tspan> }</tspan><tspan x="19px" y="117px">fmt.printf(<tspan id="c3">"Point %%<tspan id="c5">\n</tspan>"</tspan>, p)</tspan><tspan x="5px" y="131px">} <tspan id="c7">// This is a comment</tspan></tspan></text>
 </svg>`
 )
